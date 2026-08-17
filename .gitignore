@@ -1,0 +1,13 @@
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Environment & Secrets (per-app .gitignore files also cover these)
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log

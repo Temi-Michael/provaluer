@@ -1,0 +1,41 @@
+# Environment & Secrets
+.env
+.env.*
+*.env
+!.env.example
+
+# Binaries & Compiled Executables
+provaluer-api
+main
+*.exe
+*.exe?
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Databases & Runtime Data
+provaluer.db
+*.db
+*.sqlite
+*.sqlite3
+
+# Local Scripts
+# NOTE: scripts/ is intentionally tracked — seed_admin.go is required to create
+# the first admin account on a fresh deployment.
+
+# Python Cache & Artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs
+*.log
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

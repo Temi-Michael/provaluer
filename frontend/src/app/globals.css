@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #f5f5f7;
+  --foreground: #121214;
+  --surface: #ffffff;
+  --surface-hover: #e5e5ea;
+  --border: #d1d1d6;
+}
+
+.dark {
+  --background: #121214;
+  --foreground: #f5f5f7;
+  --surface: #1a1a1c;
+  --surface-hover: #232326;
+  --border: #303033;
+}
+
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  
+  /* Retain other core colors */
+  --color-black: #121214;
+  --color-gray6: #1a1a1c;
+  --color-gray5: #232326;
+  --color-gray4: #303033;
+  --color-gray3: #48484a;
+  --color-gray2: #86868b;
+  --color-gray1: #d1d1d6;
+  --color-white: #f5f5f7;
+  --color-accent: #6e5ce6;
+  --color-blue: #0a84ff;
+  --color-green: #30d158;
+  --color-red: #ff453a;
+  --color-gold: #ffd60a;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 50%, #34d399 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
