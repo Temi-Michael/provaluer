@@ -12,6 +12,7 @@ func RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/auth/register", Controllers.RegisterUser)
 	mux.HandleFunc("/api/auth/login", Controllers.LoginUser)
 	mux.HandleFunc("/api/auth/verify", Controllers.VerifyAccount)
+	mux.HandleFunc("/api/auth/resend-verification", Controllers.ResendVerification)
 	
 	// Protected Profile Routes
 	mux.HandleFunc("/api/profile/api-key", Middleware.RequireAuth(Controllers.GenerateAPIKey))

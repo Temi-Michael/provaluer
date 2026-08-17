@@ -88,12 +88,17 @@ func StartCronJobs() {
 			time.Sleep(time.Until(next))
 
 			CheckUpcomingRent()
+			CleanupUnverifiedAccounts()
 
 			if time.Now().Day() == 1 {
 				ResetMonthlyUsage()
 			}
 		}
 	}()
+
+	// Sweep expired unverified accounts once at boot so a redeploy doesn't wait
+	// until midnight to clear a backlog.
+	go CleanupUnverifiedAccounts()
 
 	// Property scraper — runs daily at 02:00 AM
 	go func() {

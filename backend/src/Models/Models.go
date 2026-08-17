@@ -17,8 +17,9 @@ type User struct {
 	ApiKeyToken        string    `gorm:"type:text"` // AES Encrypted
 	PortfolioCurrency  string    `gorm:"type:varchar(10);default:'NGN'"`
 	ExchangeRate       float64   `gorm:"default:1400"`
-	IsVerified         bool      `gorm:"default:false"`
-	VerificationToken  string    `gorm:"type:varchar(255)"`
+	IsVerified               bool      `gorm:"default:false"`
+	VerificationToken        string    `gorm:"type:varchar(255)"`
+	VerificationTokenExpires time.Time // Verification links are only valid until this time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 	Subscriptions      []Subscription `gorm:"foreignKey:UserID"`

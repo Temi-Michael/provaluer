@@ -8,7 +8,18 @@ import (
 	"log"
 	"net/smtp"
 	"os"
+	"strings"
 )
+
+// AppBaseURL returns the public URL of the deployed frontend, used to build
+// links in emails and post-verification redirects. Falls back to local dev.
+// Set APP_URL to your Vercel origin in production, e.g. https://provaluer.vercel.app
+func AppBaseURL() string {
+	if u := strings.TrimRight(os.Getenv("APP_URL"), "/"); u != "" {
+		return u
+	}
+	return "http://localhost:3000"
+}
 
 // Email template for welcome and verification
 const welcomeEmailTemplate = `
@@ -33,7 +44,7 @@ const welcomeEmailTemplate = `
 `
 
 func SendWelcomeEmail(toEmail string, name string, token string) {
-	verificationLink := fmt.Sprintf("http://localhost:3000/api/auth/verify?token=%s", token)
+	verificationLink := fmt.Sprintf("%s/api/auth/verify?token=%s", AppBaseURL(), token)
 
 	data := struct {
 		Name             string
@@ -89,7 +100,7 @@ func SendWelcomeEmail(toEmail string, name string, token string) {
 
 func SendReportEmail(toEmail, name string, pdfBytes []byte) {
 	mock := os.Getenv("SMTP_MOCK")
-	if mock == "true" {
+	if mock == "true" || mock == "" {
 		fmt.Printf("\n========== MOCK EMAIL TO: %s ==========\n", toEmail)
 		fmt.Println("Subject: Your Provaluer Report is Ready!")
 		fmt.Println("[Attachment: Provaluer_Report.pdf included]")

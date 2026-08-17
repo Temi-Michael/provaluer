@@ -4,14 +4,22 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
+
 	"provaluer-api/src/Config"
 	"provaluer-api/src/Helpers"
 	"provaluer-api/src/Models"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
+
+// verificationTokenTTL is how long a verification link stays valid.
+// Accounts left unverified past this window are removed by CleanupUnverifiedAccounts.
+const verificationTokenTTL = 48 * time.Hour
 
 func generateVerificationToken() string {
 	bytes := make([]byte, 32)
@@ -53,13 +61,14 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	tokenStr := generateVerificationToken()
 
 	user := Models.User{
-		FullName:          req.FullName,
-		Email:             req.Email,
-		PhoneNumber:       req.PhoneNumber,
-		PasswordHash:      string(hashedPassword),
-		Role:              role,
-		VerificationToken: tokenStr,
-		IsVerified:        false,
+		FullName:                 req.FullName,
+		Email:                    req.Email,
+		PhoneNumber:              req.PhoneNumber,
+		PasswordHash:             string(hashedPassword),
+		Role:                     role,
+		VerificationToken:        tokenStr,
+		VerificationTokenExpires: time.Now().Add(verificationTokenTTL),
+		IsVerified:               false,
 	}
 
 	if err := Config.DB.Create(&user).Error; err != nil {
@@ -107,7 +116,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !user.IsVerified {
-		Helpers.JSONError(w, "Please verify your email address before logging in.", http.StatusForbidden)
+		Helpers.JSONError(w, "Please verify your email address before logging in. Check your inbox or request a new verification link.", http.StatusForbidden)
 		return
 	}
 
@@ -155,14 +164,89 @@ func VerifyAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Reject expired links and bounce the user to a page where they can resend.
+	if time.Now().After(user.VerificationTokenExpires) {
+		http.Redirect(w, r, Helpers.AppBaseURL()+"/login?verified=expired", http.StatusFound)
+		return
+	}
+
 	user.IsVerified = true
 	user.VerificationToken = ""
-	
+
 	if err := Config.DB.Save(&user).Error; err != nil {
 		Helpers.JSONError(w, "Failed to verify account", http.StatusInternalServerError)
 		return
 	}
 
 	// Redirect back to frontend
-	http.Redirect(w, r, "http://localhost:3000/login?verified=true", http.StatusFound)
+	http.Redirect(w, r, Helpers.AppBaseURL()+"/login?verified=true", http.StatusFound)
+}
+
+// ResendVerification issues a fresh token + expiry and re-sends the verification
+// email. Always returns the same success message so it can't be used to probe
+// which emails are registered.
+func ResendVerification(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		Helpers.JSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		Helpers.JSONError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	const genericMsg = "If an unverified account exists for that email, a new verification link has been sent."
+
+	var user Models.User
+	if err := Config.DB.Where("email = ? AND is_verified = ?", req.Email, false).First(&user).Error; err == nil {
+		user.VerificationToken = generateVerificationToken()
+		user.VerificationTokenExpires = time.Now().Add(verificationTokenTTL)
+		if err := Config.DB.Save(&user).Error; err == nil {
+			go Helpers.SendWelcomeEmail(user.Email, user.FullName, user.VerificationToken)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"message": genericMsg})
+}
+
+// CleanupUnverifiedAccounts deletes accounts that were never verified before
+// their token expired, freeing the email address for re-registration. It also
+// removes the Free subscription auto-created at signup to avoid orphan rows.
+//
+// Staleness is measured from created_at (always populated) rather than the
+// token-expiry column, so rows written before that column existed — whose
+// expiry defaults to the zero time — are not swept prematurely.
+func CleanupUnverifiedAccounts() {
+	cutoff := time.Now().Add(-verificationTokenTTL)
+
+	var stale []Models.User
+	if err := Config.DB.Where("is_verified = ? AND created_at < ?", false, cutoff).Find(&stale).Error; err != nil {
+		log.Printf("[Cleanup] Failed to query unverified accounts: %v", err)
+		return
+	}
+	if len(stale) == 0 {
+		return
+	}
+
+	ids := make([]uuid.UUID, 0, len(stale))
+	for _, u := range stale {
+		ids = append(ids, u.ID)
+	}
+
+	err := Config.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("user_id IN ?", ids).Delete(&Models.Subscription{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("id IN ?", ids).Delete(&Models.User{}).Error
+	})
+	if err != nil {
+		log.Printf("[Cleanup] Failed to delete %d unverified accounts: %v", len(ids), err)
+		return
+	}
+	log.Printf("[Cleanup] Removed %d expired unverified account(s)", len(ids))
 }

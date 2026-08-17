@@ -9,16 +9,46 @@ import { Suspense } from "react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const isVerified = searchParams.get("verified") === "true";
+  const verifiedParam = searchParams.get("verified");
+  const isVerified = verifiedParam === "true";
+  const isExpired = verifiedParam === "expired";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Shown when a login is blocked because the email isn't verified, or when the
+  // verification link had expired — both let the user request a fresh link.
+  const [showResend, setShowResend] = useState(isExpired);
+  const [resendMsg, setResendMsg] = useState("");
+  const [resending, setResending] = useState(false);
+
+  const handleResend = async () => {
+    if (!email) {
+      setResendMsg("Enter your email address above first.");
+      return;
+    }
+    setResending(true);
+    setResendMsg("");
+    try {
+      const res = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => null);
+      setResendMsg(data?.message || "If an unverified account exists for that email, a new link has been sent.");
+    } catch {
+      setResendMsg("Could not send right now. Please try again shortly.");
+    } finally {
+      setResending(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setResendMsg("");
     setLoading(true);
 
     try {
@@ -39,6 +69,8 @@ function LoginForm() {
         localStorage.setItem("provaluer_user", JSON.stringify(data.user));
         router.push("/dashboard");
       } else {
+        // 403 = account exists but is unverified; surface the resend option.
+        if (res.status === 403) setShowResend(true);
         throw new Error(data?.error || data?.message || text || "Failed to login. Please try again.");
       }
     } catch (err: any) {
@@ -110,10 +142,31 @@ function LoginForm() {
             </div>
           )}
 
+          {isExpired && (
+            <div className="bg-[#ff9f0a]/10 border border-[#ff9f0a]/30 text-[#ff9f0a] text-[13px] p-4 rounded-xl text-center mb-6 font-medium">
+              That verification link has expired. Enter your email and request a new one below.
+            </div>
+          )}
+
           <form className="space-y-5" onSubmit={handleLogin}>
             {error && (
               <div className="bg-red/10 border border-red/20 text-red text-[13px] p-3 rounded-xl text-center">
                 {error}
+              </div>
+            )}
+
+            {showResend && (
+              <div className="bg-white/5 border border-white/10 text-[13px] p-4 rounded-xl">
+                <p className="text-gray2 mb-3">Need a new verification link?</p>
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resending}
+                  className="w-full bg-blue/15 text-blue font-medium py-2.5 rounded-lg hover:bg-blue/25 transition-colors disabled:opacity-50"
+                >
+                  {resending ? "Sending..." : "Resend verification email"}
+                </button>
+                {resendMsg && <p className="text-gray3 mt-3 text-center text-[12px]">{resendMsg}</p>}
               </div>
             )}
 

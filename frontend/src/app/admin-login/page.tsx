@@ -17,7 +17,9 @@ export default function AdminLogin() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:8080/api/admin/auth/login", {
+      // Relative path so the request goes through the Next.js rewrite proxy and
+      // works on any deployment. An absolute localhost URL breaks in production.
+      const res = await fetch("/api/admin/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
