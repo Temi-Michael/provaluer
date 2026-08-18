@@ -4,14 +4,61 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 
 	"provaluer-api/src/Models"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var DB *gorm.DB
+
+// newDBLogger configures GORM's query logger.
+//
+// GORM's default logger inlines every bound parameter into the logged SQL and
+// logs any statement slower than 200ms. Against a managed database that
+// threshold is crossed routinely by ordinary network latency, so password
+// hashes, verification tokens and other sensitive column values end up in
+// plain text in the platform logs.
+//
+// ParameterizedQueries replaces those values with placeholders ($1, $2, ...),
+// which keeps slow-query and error diagnostics useful without leaking data.
+// It is on unless DB_LOG_PARAMS=true is set explicitly for local debugging.
+func newDBLogger() logger.Interface {
+	level := logger.Warn
+	switch strings.ToLower(os.Getenv("DB_LOG_LEVEL")) {
+	case "silent":
+		level = logger.Silent
+	case "error":
+		level = logger.Error
+	case "warn":
+		level = logger.Warn
+	case "info":
+		level = logger.Info
+	}
+
+	// Opt-in only, and never worth enabling on a deployed environment.
+	redactParams := strings.ToLower(os.Getenv("DB_LOG_PARAMS")) != "true"
+	if !redactParams {
+		log.Println("WARNING: DB_LOG_PARAMS=true — SQL parameter values will be written to logs. Do not use in production.")
+	}
+
+	return logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			// A remote managed database makes 200ms unremarkable; 1s indicates
+			// a query actually worth investigating.
+			SlowThreshold:             time.Second,
+			LogLevel:                  level,
+			IgnoreRecordNotFoundError: true,
+			ParameterizedQueries:      redactParams,
+			Colorful:                  false, // platform log viewers render ANSI codes as noise
+		},
+	)
+}
 
 func ConnectDB() {
 	dsn := os.Getenv("DATABASE_URL")
@@ -20,7 +67,7 @@ func ConnectDB() {
 		dsn = "host=localhost user=postgres password=postgres dbname=provaluer port=5432 sslmode=disable"
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: newDBLogger()})
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import UpgradeModal from "@/components/ui/UpgradeModal";
+import AlertModal, { AlertState } from "@/components/ui/AlertModal";
 
 function ModelsPageContent() {
   const router = useRouter();
@@ -14,6 +15,7 @@ function ModelsPageContent() {
   const [loading, setLoading] = useState(true);
   const [emailingId, setEmailingId] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [alert, setAlert] = useState<AlertState | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
@@ -92,7 +94,11 @@ function ModelsPageContent() {
       document.body.removeChild(a);
     } catch (e) {
       console.error(e);
-      alert("Failed to download PDF");
+      setAlert({
+        variant: "error",
+        title: "Download failed",
+        message: "We couldn't generate that PDF. Please try again in a moment.",
+      });
     }
   };
 
@@ -112,10 +118,18 @@ function ModelsPageContent() {
         }
         throw new Error("Failed to email report");
       }
-      alert("Report has been successfully emailed to you!");
+      setAlert({
+        variant: "success",
+        title: "Report sent",
+        message: "Your valuation report is on its way. Check your inbox in a minute or two.",
+      });
     } catch (e) {
       console.error(e);
-      alert("Failed to email report");
+      setAlert({
+        variant: "error",
+        title: "Couldn't send report",
+        message: "Something went wrong emailing your report. Please try again.",
+      });
     } finally {
       setEmailingId(null);
     }
@@ -260,6 +274,8 @@ function ModelsPageContent() {
           </table>
         </div>
       </div>
+      <AlertModal alert={alert} onClose={() => setAlert(null)} />
+
       <UpgradeModal 
         isOpen={showUpgradeModal} 
         onClose={() => setShowUpgradeModal(false)} 

@@ -32,6 +32,27 @@ type UpgradeRequest struct {
 	PlanTier string `json:"plan_tier"`
 }
 
+// tierRank orders plans so a change can be classified as an upgrade or a downgrade.
+var tierRank = map[string]int{"Free": 0, "Professional": 1, "Enterprise": 2}
+
+// notifySubscriptionChange emails the user a plan-change confirmation. It looks
+// the user up by ID and sends in the background, so a mail failure can never
+// block or fail the subscription update itself.
+func notifySubscriptionChange(userID, newTier, previousTier string, limit int) {
+	var user Models.User
+	if err := Config.DB.Where("id = ?", userID).First(&user).Error; err != nil || user.Email == "" {
+		return
+	}
+
+	go Helpers.SendSubscriptionChangeEmail(Helpers.SubscriptionEmail{
+		ToEmail:      user.Email,
+		Name:         user.FullName,
+		PlanTier:     newTier,
+		MonthlyLimit: limit,
+		Downgrade:    tierRank[newTier] < tierRank[previousTier],
+	})
+}
+
 // UpgradeSubscription upgrades the user's subscription tier
 func UpgradeSubscription(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -55,6 +76,13 @@ func UpgradeSubscription(w http.ResponseWriter, r *http.Request) {
 		req.PlanTier = "Free"
 	}
 
+	// Capture the previous tier so the confirmation email can tell an upgrade
+	// from a downgrade.
+	previousTier := ""
+	if current, err := Helpers.GetActiveSubscription(userID); err == nil {
+		previousTier = current.PlanTier
+	}
+
 	// Update existing subscription
 	if err := Config.DB.Model(&Models.Subscription{}).Where("user_id = ? AND is_active = ?", userID, true).Updates(map[string]interface{}{
 		"plan_tier":     req.PlanTier,
@@ -64,6 +92,8 @@ func UpgradeSubscription(w http.ResponseWriter, r *http.Request) {
 		Helpers.JSONError(w, "Failed to upgrade subscription", http.StatusInternalServerError)
 		return
 	}
+
+	notifySubscriptionChange(userID, req.PlanTier, previousTier, limit)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{

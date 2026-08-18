@@ -24,13 +24,15 @@ func ResetMonthlyUsage() {
 	log.Printf("Successfully reset monthly usage for %d subscriptions.\n", result.RowsAffected)
 }
 
-// CheckUpcomingRent queries leases where NextRentDue is in exactly 7 days and sends reminders.
+// rentReminderLeadDays is how far ahead of the due date tenants are notified.
+const rentReminderLeadDays = 7
+
+// CheckUpcomingRent queries leases due in exactly rentReminderLeadDays and sends reminders.
 func CheckUpcomingRent() {
 	log.Println("Running CheckUpcomingRent Cron Job...")
-	
-	// Target date is exactly 7 days from now (start of day)
+
 	now := time.Now()
-	targetDate := time.Date(now.Year(), now.Month(), now.Day()+7, 0, 0, 0, 0, now.Location())
+	targetDate := time.Date(now.Year(), now.Month(), now.Day()+rentReminderLeadDays, 0, 0, 0, 0, now.Location())
 	
 	var leases []Models.Lease
 	if err := Config.DB.Preload("Property").Preload("Tenant").Where("DATE(next_due_date) = DATE(?) AND is_active = ?", targetDate, true).Find(&leases).Error; err != nil {
@@ -39,10 +41,20 @@ func CheckUpcomingRent() {
 	}
 
 	for _, lease := range leases {
-		if lease.Tenant.Email != "" {
-			Helpers.SendReportEmail(lease.Tenant.Email, lease.Tenant.FullName, nil) // Mocking rent reminder for now since we don't have a SendRentReminder func
-			log.Printf("Sent rent reminder to %s for property %s\n", lease.Tenant.Email, lease.Property.PropertyType)
+		if lease.Tenant.Email == "" {
+			continue
 		}
+		Helpers.SendRentReminderEmail(Helpers.RentReminderEmail{
+			ToEmail:         lease.Tenant.Email,
+			TenantName:      lease.Tenant.FullName,
+			PropertyTitle:   lease.Property.Title,
+			PropertyAddress: lease.Property.Address,
+			RentAmount:      lease.RentAmount,
+			Currency:        lease.Currency,
+			DueDate:         lease.NextDueDate,
+			DaysUntilDue:    rentReminderLeadDays,
+		})
+		log.Printf("Sent rent reminder to %s for property %s\n", lease.Tenant.Email, lease.Property.Title)
 	}
 	log.Printf("Processed %d rent reminders.\n", len(leases))
 }

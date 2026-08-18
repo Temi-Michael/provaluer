@@ -95,8 +95,10 @@ func OverrideSubscriptionAdmin(w http.ResponseWriter, r *http.Request) {
 	// Preserve current usage before deactivating
 	var currentSub Models.Subscription
 	var currentUsage int
+	previousTier := ""
 	if err := Config.DB.Where("user_id = ? AND is_active = ?", req.UserID, true).First(&currentSub).Error; err == nil {
 		currentUsage = currentSub.ModelsUsedThisMonth
+		previousTier = currentSub.PlanTier
 	}
 
 	// Deactivate existing subs
@@ -120,6 +122,9 @@ func OverrideSubscriptionAdmin(w http.ResponseWriter, r *http.Request) {
 		JSONAdminResponse(w, http.StatusInternalServerError, nil, "Failed to create new subscription")
 		return
 	}
+
+	// Let the user know their plan changed, same as a self-service upgrade.
+	notifySubscriptionChange(req.UserID, req.PlanTier, previousTier, req.MonthlyLimit)
 
 	JSONAdminResponse(w, http.StatusOK, map[string]string{"message": "Subscription overridden successfully"}, "")
 }

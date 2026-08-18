@@ -177,7 +177,16 @@ func EmailValuationPDF(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Send email asynchronously
-	go Helpers.SendReportEmail(model.User.Email, model.User.FullName, pdfBytes)
+	go Helpers.SendReportEmail(Helpers.ReportEmail{
+		ToEmail:        model.User.Email,
+		Name:           model.User.FullName,
+		ModelType:      model.ModelType,
+		PropertyType:   model.Property.Type,
+		State:          model.Property.State,
+		EstimatedValue: model.EstimatedValue,
+		Confidence:     model.ConfidenceScore,
+		PDF:            pdfBytes,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{

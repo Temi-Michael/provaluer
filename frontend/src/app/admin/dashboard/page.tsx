@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { limitForTier } from "@/lib/tiers";
 import { adminFetch } from "@/lib/adminApi";
+import AlertModal, { AlertState } from "@/components/ui/AlertModal";
 
 interface AdminStats {
   total_users: number;
@@ -29,6 +30,7 @@ export default function AdminPortal() {
   
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [alert, setAlert] = useState<AlertState | null>(null);
   
   // Modal Form State
   const [planTier, setPlanTier] = useState("Free");
@@ -113,11 +115,25 @@ export default function AdminPortal() {
       if (res.ok && data.success) {
         setShowModal(false);
         fetchData(); // Refresh table
+        setAlert({
+          variant: "success",
+          title: "Subscription updated",
+          message: `${selectedUser.Email} is now on the ${planTier} plan. They have been emailed a confirmation.`,
+        });
       } else {
-        alert(data.error || "Failed to update");
+        setAlert({
+          variant: "error",
+          title: "Update failed",
+          message: data.error || "The subscription could not be updated. Please try again.",
+        });
       }
     } catch (err) {
-      alert("Network error");
+      // adminFetch redirects on 401, so anything reaching here is a network fault.
+      setAlert({
+        variant: "error",
+        title: "Network error",
+        message: "We couldn't reach the server. Check your connection and try again.",
+      });
     }
   };
 
@@ -323,6 +339,8 @@ export default function AdminPortal() {
           </div>
         </div>
       )}
+
+      <AlertModal alert={alert} onClose={() => setAlert(null)} />
     </div>
   );
 }
