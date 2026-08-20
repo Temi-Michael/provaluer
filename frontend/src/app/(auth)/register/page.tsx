@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -207,14 +208,13 @@ export default function RegisterPage() {
 
                 <div className="flex flex-col gap-2">
                   <label className="text-[13px] text-gray2 font-medium">Password</label>
-                  <input 
-                    type="password" 
+                  <PasswordInput
                     name="password"
                     required
                     value={formData.password}
                     onChange={handleChange}
-                    placeholder="••••••••" 
-                    className="bg-[#141415] border border-white/10 rounded-xl px-4 py-3.5 text-[15px] text-white outline-none focus:border-blue focus:bg-[#1c1c1e] transition-colors placeholder:text-gray4" 
+                    placeholder="••••••••"
+                    className="w-full bg-[#141415] border border-white/10 rounded-xl px-4 py-3.5 text-[15px] text-white outline-none focus:border-blue focus:bg-[#1c1c1e] transition-colors placeholder:text-gray4"
                   />
                 </div>
 

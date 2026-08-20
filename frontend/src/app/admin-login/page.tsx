@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -79,8 +80,7 @@ export default function AdminLogin() {
             
             <div>
               <label className="block text-[12px] font-bold text-gray2 uppercase tracking-widest mb-2">Secure Password</label>
-              <input
-                type="password"
+              <PasswordInput
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

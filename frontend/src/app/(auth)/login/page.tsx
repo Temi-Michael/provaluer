@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
+import PasswordInput from "@/components/ui/PasswordInput";
 
 function LoginForm() {
   const router = useRouter();
@@ -187,13 +188,12 @@ function LoginForm() {
                 <label className="text-[13px] text-gray2 font-medium">Password</label>
                 <Link href="#" className="text-[13px] text-blue hover:underline">Forgot password?</Link>
               </div>
-              <input 
-                type="password" 
+              <PasswordInput
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••" 
-                className="bg-[#141415] border border-white/10 rounded-xl px-4 py-3.5 text-[15px] text-white outline-none focus:border-blue focus:bg-[#1c1c1e] transition-colors placeholder:text-gray4" 
+                placeholder="••••••••"
+                className="w-full bg-[#141415] border border-white/10 rounded-xl px-4 py-3.5 text-[15px] text-white outline-none focus:border-blue focus:bg-[#1c1c1e] transition-colors placeholder:text-gray4" 
               />
             </div>
 
